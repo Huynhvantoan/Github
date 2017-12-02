@@ -1,0 +1,172 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'realm-android'
+
+kapt {
+    generateStubs = true
+}
+
+android {
+    def config = rootProject.extensions.getByName("ext")
+
+    compileSdkVersion config.getAt("compile_sdk")
+    buildToolsVersion config.getAt("build_tools")
+
+    defaultConfig {
+        applicationId config.getAt("application_id")
+        minSdkVersion config.getAt("min_sdk")
+        targetSdkVersion config.getAt("target_sdk")
+        versionCode config.getAt("version_code")
+        versionName config.getAt("version_name")
+        testInstrumentationRunner config.getAt("test_runner")
+    }
+
+    packagingOptions {
+        exclude 'LICENSE.txt'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+    }
+
+    lintOptions {
+        lintConfig rootProject.file('lint.xml')
+        quiet true
+        abortOnError false
+        ignoreWarnings true
+        disable 'InvalidPackage'            //Some libraries have issues with this.
+        disable 'OldTargetApi'
+        disable 'IconDensities'             //For testing purpose. This is safe to remove.
+        disable 'IconMissingDensityFolder'  //For testing purpose. This is safe to remove.
+    }
+
+    signingConfigs {
+        Key {
+            try {
+                storeFile file(config.getAt("keystore"))
+                storePassword config.getAt("keystorePass")
+                keyAlias config.getAt("alias")
+                keyPassword config.getAt("aliasPass")
+            }
+            catch (ignored) {
+                throw new InvalidUserDataException("You should define KEYSTORE_PASSWORD and KEY_PASSWORD in gradle.properties.")
+            }
+        }
+    }
+
+    dataBinding {
+        enabled = true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.Key
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'),
+                    'proguard-rules.pro',
+                    'proguard-square.pro',
+                    'proguard-support.pro',
+                    'proguard-rx.pro'
+        }
+        debug {
+            debuggable true
+        }
+    }
+    dexOptions {
+        javaMaxHeapSize "4g"
+    }
+
+    sourceSets {
+        main {
+            res.srcDirs = [
+                    'src/main/res-main',
+                    file('src/main/res-screen')
+                            .listFiles()
+                            .each { res.srcDirs += it.path }
+            ]
+        }
+        main.java.srcDirs += 'src/main/java'
+
+      /* main.java.srcDirs += [file("$buildDir/generated/source/kapt/main")]
+        test.java.srcDirs += 'src/test/java'
+        androidTest.java.srcDirs += 'src/androidTest/java'*/
+
+    }
+}
+
+dependencies {
+    def supportDependencies = rootProject.ext.supportDependencies
+    def injectDependencies = rootProject.ext.injectDependencies
+    def networkDependencies = rootProject.ext.networkDependencies
+    def coreDependencies = rootProject.ext.coreDependencies
+    def architectureComponents = rootProject.ext.architectureComponents
+    def appDependencies = rootProject.ext.appDependencies
+    def developmentDependencies = rootProject.ext.developmentDependencies
+    def testDependencies = rootProject.ext.testDependencies
+    //implementation project(':core')
+    //----- Support
+    implementation supportDependencies.supportCompat
+    implementation supportDependencies.supportCardView
+    implementation supportDependencies.supportDesign
+    implementation supportDependencies.supportRecyclerView
+    implementation supportDependencies.constraintLayout
+    //kapt 'com.android.databinding:compiler:2.3.3'
+    //annotationProcessor "com.android.databinding:compiler:$gradle_tools"
+    //----- Core
+    for (dependency in coreDependencies) {
+        implementation dependency.value
+    }
+    //----- Kotlin
+    implementation architectureComponents.kotlin
+    //----- Architecture Components
+    implementation architectureComponents.architectureRuntime
+    implementation architectureComponents.architectureExtensions
+    //kapt architectureComponents.architectureCompiler
+    kapt architectureComponents.architectureCompiler
+    //----- Dagger 2 Injection Library
+    implementation injectDependencies.dagger
+    implementation injectDependencies.daggerAndroid
+    implementation injectDependencies.daggerAndroidSupport
+    kapt injectDependencies.daggerCompiler
+    kapt injectDependencies.daggerAndroidCompiler
+    //----- RxJava 2
+    implementation injectDependencies.rxjava
+    implementation injectDependencies.rxandroid
+    implementation injectDependencies.rxbinding
+    implementation injectDependencies.rxpermissions
+    //----- Retrofit HTTP / Rest Library
+    implementation(networkDependencies.retrofit) {
+        exclude module: 'okhttp'
+    }
+    implementation networkDependencies.retrofitRxJavaAdapter
+    implementation networkDependencies.retrofitGsonConverter
+    implementation networkDependencies.okHttp
+    implementation(networkDependencies.okHttpLogging) {
+        exclude group: 'org.json', module: 'json'
+        exclude module: 'okhttp'
+    }
+    //----- Load Image
+    implementation networkDependencies.glide
+    //----- Library
+    //implementation appDependencies.baseRecyclerView
+    //Development
+    implementation developmentDependencies.leakCanary
+    implementation developmentDependencies.blockCanary
+    implementation developmentDependencies.stetho
+    implementation developmentDependencies.stethoOkHttp
+    //Test
+    testCompile testDependencies.junit
+    testCompile testDependencies.testingSupportLib
+
+    implementation "android.arch.persistence.room:runtime:1.0.0-alpha4"
+    //kapt "android.arch.persistence.room:compiler:1.0.0-alpha3"
+    kapt "android.arch.persistence.room:compiler:1.0.0-alpha4"
+}

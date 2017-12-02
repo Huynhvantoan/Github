@@ -1,0 +1,91 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'realm-android'
+
+android {
+    def config = rootProject.extensions.getByName("ext")
+
+    compileSdkVersion config.getAt("compile_sdk")
+    buildToolsVersion config.getAt("build_tools")
+
+    defaultConfig {
+        minSdkVersion config.getAt("min_sdk")
+        targetSdkVersion config.getAt("target_sdk")
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lintOptions {
+        quiet true
+        abortOnError false
+        ignoreWarnings true
+        disable 'InvalidPackage'            //Some libraries have issues with this.
+        disable 'OldTargetApi'
+        //Lint gives this warning but SDK 20 would be Android L Beta.
+        disable 'IconDensities'             //For testing purpose. This is safe to remove.
+        disable 'IconMissingDensityFolder'  //For testing purpose. This is safe to remove.
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        main.java.srcDirs += [file("$buildDir/generated/source/kapt/main")]
+        test.java.srcDirs += 'src/test/kotlin'
+        androidTest.java.srcDirs += 'src/androidTest/kotlin'
+    }
+
+    kapt {
+        generateStubs = true
+    }
+
+}
+
+dependencies {
+    def supportDependencies = rootProject.ext.supportDependencies
+    def injectDependencies = rootProject.ext.injectDependencies
+    def networkDependencies = rootProject.ext.networkDependencies
+    def coreDependencies = rootProject.ext.coreDependencies
+    def architectureComponents = rootProject.ext.architectureComponents
+    //----- Support
+    implementation supportDependencies.supportCompat
+    implementation supportDependencies.supportRecyclerView
+    implementation supportDependencies.supportDesign
+    implementation supportDependencies.constraintLayout
+    //----- Kotlin
+    implementation architectureComponents.kotlin
+    //----- Architecture Components
+    implementation architectureComponents.architectureRuntime
+    implementation architectureComponents.architectureExtensions
+    kapt architectureComponents.architectureCompiler
+    //----- Dagger 2 Injection Library
+    implementation injectDependencies.dagger
+    kapt injectDependencies.daggerCompiler
+    //----- RxJava 2
+    implementation injectDependencies.rxjava
+    implementation injectDependencies.rxandroid
+    implementation injectDependencies.rxbinding
+    implementation injectDependencies.rxpermissions
+    //----- Load Image
+    implementation (networkDependencies.fresco){
+        exclude module: 'okhttp'
+    }
+    implementation (networkDependencies.frescoOkhttp){
+        exclude module: 'okhttp'
+    }
+    //----- Retrofit HTTP / Rest Library
+    implementation (networkDependencies.retrofit) {
+        exclude module: 'okhttp'
+    }
+    implementation networkDependencies.retrofitRxJavaAdapter
+    implementation networkDependencies.retrofitGsonConverter
+    implementation networkDependencies.okHttp
+    implementation (networkDependencies.okHttpLogging) {
+        exclude group: 'org.json', module: 'json'
+        exclude module: 'okhttp'
+    }
+}
